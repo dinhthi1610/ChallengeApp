@@ -3,12 +3,10 @@ package ranking.f5.com.challengeapp.activity;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
-import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -37,6 +35,7 @@ import java.util.List;
 import ranking.f5.com.challengeapp.R;
 import ranking.f5.com.challengeapp.model.LocationEntity;
 import ranking.f5.com.challengeapp.utils.Constants;
+import ranking.f5.com.challengeapp.utils.Utils;
 
 /**
  * @author Dinhthi
@@ -44,9 +43,7 @@ import ranking.f5.com.challengeapp.utils.Constants;
  */
 public class MainActivity extends Activity implements OnMapReadyCallback {
 
-    private List<LocationEntity> mLocationEntities = new ArrayList<>();
-    private float mZoom = 15;
-    private Location mLocation;
+    private List<LocationEntity> mLocationEntities;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,60 +57,96 @@ public class MainActivity extends Activity implements OnMapReadyCallback {
     @Override
     public void onMapReady(final GoogleMap map) {
         map.setMyLocationEnabled(true);
-
+        //====================get current location feed post======
         LocationManager service = (LocationManager) getSystemService(LOCATION_SERVICE);
-        Criteria criteria = new Criteria();
-        String provider = service.getBestProvider(criteria, false);
-        Location location = service.getLastKnownLocation(provider);
+        Location location = service.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
         LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
-        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(userLocation, mZoom);
+        //========================================================
+
+        // will move camera to current location and load last posts of instagram on google maps.
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(userLocation, 15);
         map.animateCamera(cameraUpdate);
-        initAuthenticationInstagram(userLocation, map);
         map.setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
             @Override
             public void onCameraChange(CameraPosition cameraPosition) {
-                map.clear();
-                LatLng center = cameraPosition.target;
-                initAuthenticationInstagram(center, map);
+                initDataAndLoadMarkerOnMap(cameraPosition.target, map);
             }
         });
     }
 
-    public void initAuthenticationInstagram(LatLng location, final GoogleMap map) {
-        String endPointURL = "https://api.instagram.com/v1/media/search?distance=500&&client_id=" + Constants.CLIENT_ID + "&lat=" + location.latitude + "&lng=" + location.longitude;
+    /**
+     * This method using to load instagram post from search API wit current location and distance.
+     * After has data, the map will load all marker with information and move to details screen when touch on each of marker.
+     *
+     * @param location is camera position when user drag map. It's mean when user move the camera. will load new feed for this location.
+     * @param map      is google map
+     */
+    public void initDataAndLoadMarkerOnMap(LatLng location, final GoogleMap map) {
         RequestQueue mQueue = Volley.newRequestQueue(getApplicationContext());
         JsonObjectRequest jsonObjReq = new JsonObjectRequest(Request.Method.GET,
-                endPointURL, null, new Response.Listener<JSONObject>() {
+                Utils.apiSearchFriend(location, 1000), null, new Response.Listener<JSONObject>() {
 
             @TargetApi(Build.VERSION_CODES.KITKAT)
             @Override
             public void onResponse(JSONObject response) {
                 try {
+                    mLocationEntities = new ArrayList<>();
                     JSONArray jsonArray = response.getJSONArray("data");
                     for (int i = 0; i < jsonArray.length(); i++) {
+                        // get Location object from json result
                         JSONObject location = jsonArray.getJSONObject(i).getJSONObject("location");
                         LocationEntity locationEntity = new LocationEntity();
                         locationEntity.setLat(location.getDouble("latitude"));
                         locationEntity.setLng(location.getDouble("longitude"));
 
+                        // get User object from json result
                         JSONObject user = jsonArray.getJSONObject(i).getJSONObject("user");
                         locationEntity.setName(user.getString("full_name"));
                         locationEntity.setId(user.getLong("id"));
                         locationEntity.setProfileImage(user.getString("profile_picture"));
                         locationEntity.setUserName(user.getString("username"));
+
+                        // sometime will have some duplication from response result, we will check it and store if not existing.
+                        boolean isAdd = false;
+                        if (mLocationEntities.size() > 1) {
+                            for (int j = 0; j < mLocationEntities.size(); j++) {
+                                if (!mLocationEntities.get(j).getUserName().equalsIgnoreCase(locationEntity.getUserName())) {
+                                    isAdd = true;
+                                } else {
+                                    isAdd = false;
+                                    break;
+                                }
+                            }
+
+                            if (isAdd) {
                         mLocationEntities.add(locationEntity);
+                    }
+
+                        } else {
+                            mLocationEntities.add(locationEntity);
+                        }
                     }
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
 
                 if (mLocationEntities != null && mLocationEntities.size() != 0) {
+                    String titleName;
+                    LatLng objectMaker;
                     for (int i = 0; i < mLocationEntities.size(); i++) {
-                        LatLng objectMaker = new LatLng(mLocationEntities.get(i).getLat(), mLocationEntities.get(i).getLng());
+                        objectMaker = new LatLng(mLocationEntities.get(i).getLat(), mLocationEntities.get(i).getLng());
+
+                        // sometime user return with null name, will use username to show for details.
+                        if (mLocationEntities.get(i).getName().trim().length() != 0) {
+                            titleName = mLocationEntities.get(i).getName();
+                        } else {
+                            titleName = mLocationEntities.get(i).getUserName();
+                        }
+
+                        // add new marker
                         map.addMarker(new MarkerOptions().position(objectMaker)
                                 .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_maker))
-                                .anchor(0.0f, 1.0f)
-                                .title(mLocationEntities.get(i).getName()));
+                                .title(titleName));
                     }
                 }
 
@@ -121,9 +154,9 @@ public class MainActivity extends Activity implements OnMapReadyCallback {
                     @Override
                     public void onInfoWindowClick(Marker marker) {
                         Intent userDetailIntent = new Intent(MainActivity.this, UserDetailActivity.class);
-                        if (mLocationEntities != null && mLocationEntities.size() != 0) {
                             for (int i = 0; i < mLocationEntities.size(); i++) {
-                                if (marker.getTitle().trim().equalsIgnoreCase(mLocationEntities.get(i).getName())) {
+                                if (marker.getTitle().trim().equalsIgnoreCase(mLocationEntities.get(i).getName())
+                                        || marker.getTitle().trim().equalsIgnoreCase(mLocationEntities.get(i).getUserName())) {
                                     userDetailIntent.putExtra(Constants.KEY_USER_NAME, mLocationEntities.get(i).getUserName());
                                     userDetailIntent.putExtra(Constants.USER_ID, mLocationEntities.get(i).getId());
                                     startActivity(userDetailIntent);
@@ -131,12 +164,10 @@ public class MainActivity extends Activity implements OnMapReadyCallback {
                                 }
                             }
                         }
-                    }
                 });
 
             }
         }, new Response.ErrorListener() {
-
             @Override
             public void onErrorResponse(VolleyError error) {
             }
@@ -145,9 +176,12 @@ public class MainActivity extends Activity implements OnMapReadyCallback {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onDestroy() {
+        super.onDestroy();
+        // clear list to performance memory
+        if (mLocationEntities != null) {
+            mLocationEntities.clear();
+            mLocationEntities = null;
+        }
     }
-
-
 }

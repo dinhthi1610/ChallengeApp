@@ -44,6 +44,9 @@
             android:label="@string/app_name">
         </activity>
 
+        <!-- 
+             KEY from THI: AIzaSyAqmCTzS7mOp_RapZ26uj8Xrq8lZC9TBUY
+        -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/map_api_key"/>

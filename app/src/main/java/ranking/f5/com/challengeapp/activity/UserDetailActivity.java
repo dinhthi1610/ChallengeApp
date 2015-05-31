@@ -3,9 +3,7 @@ package ranking.f5.com.challengeapp.activity;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Intent;
 import android.graphics.Bitmap;
-import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -18,11 +16,6 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
 import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
 import com.nostra13.universalimageloader.core.assist.FailReason;
@@ -33,8 +26,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import ranking.f5.com.challengeapp.R;
-import ranking.f5.com.challengeapp.model.LocationEntity;
 import ranking.f5.com.challengeapp.utils.Constants;
+import ranking.f5.com.challengeapp.utils.Utils;
 
 
 public class UserDetailActivity extends Activity {
@@ -74,10 +67,9 @@ public class UserDetailActivity extends Activity {
 
 
     public void initAuthenticationInstagram(long userId) {
-        String endPointURL = "https://api.instagram.com/v1/users/" + userId + "/media/recent/?client_id=" + Constants.CLIENT_ID;
         RequestQueue mQueue = Volley.newRequestQueue(getApplicationContext());
         JsonObjectRequest jsonObjReq = new JsonObjectRequest(Request.Method.GET,
-                endPointURL, null, new Response.Listener<JSONObject>() {
+                Utils.apiGetUserDetailById(userId), null, new Response.Listener<JSONObject>() {
 
             @TargetApi(Build.VERSION_CODES.KITKAT)
             @Override
