@@ -43,7 +43,7 @@ import ranking.f5.com.challengeapp.utils.Utils;
  */
 public class MainActivity extends Activity implements OnMapReadyCallback {
 
-    private List<LocationEntity> mLocationEntities;
+    private List<LocationEntity> mLocationEntities = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,7 +90,6 @@ public class MainActivity extends Activity implements OnMapReadyCallback {
             @Override
             public void onResponse(JSONObject response) {
                 try {
-                    mLocationEntities = new ArrayList<>();
                     JSONArray jsonArray = response.getJSONArray("data");
                     for (int i = 0; i < jsonArray.length(); i++) {
                         // get Location object from json result
@@ -166,6 +165,14 @@ public class MainActivity extends Activity implements OnMapReadyCallback {
                         }
                 });
 
+                map.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
+                    @Override
+                    public boolean onMyLocationButtonClick() {
+                        map.clear();
+                        mLocationEntities.clear();
+                        return false;
+                    }
+                });
             }
         }, new Response.ErrorListener() {
             @Override
